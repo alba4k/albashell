@@ -1,39 +1,31 @@
-use colored::{Color, ColoredString, Colorize};
-use std::io;
-use std::io::Write;
-use std::process::{Command, Output, exit};
+use colored::{Color, Colorize};
+use std::env;
+use std::io::{self, Write};
+use std::path::PathBuf;
+use std::process::{Command, Output};
+
+mod builtins;
+use builtins::*;
+mod parser;
 
 const ERROR: &str = "\x1b[1m[\x1b[31mERROR\x1b[0m\x1b[1m]\x1b[0m";
 
 fn main() {
-    let builtins: Vec<&str> = vec!["echo", "type", "exit"];
+    const BUILTINS: &[&str] = &["echo", "type", "exit", "cd"];
 
     let username: String = whoami::username().unwrap_or("<unknown>".to_string());
     let hostname: String = whoami::hostname().unwrap_or("<unknown>".to_string());
+    let homedir: String = env::var("HOME").unwrap_or("/".to_string());
 
     const COL: Color = Color::Cyan;
-    let mut success_indicator: ColoredString = ">".white();
     let mut retcode: i32 = 0;
-    let prompt: String = format!("{}@{}", username.color(COL), hostname.color(COL));
-    let char: &str = if username.eq("root") { "#" } else { "$" };
 
     loop {
-        print!(
-            "{} {} {} {} ",
-            if retcode != 0 {
-                format!("({retcode})")
-            } else {
-                String::new()
-            },
-            success_indicator,
-            prompt,
-            char
-        );
-        let _ = io::stdout().flush();
+        print_prompt(&username, &hostname, retcode, &homedir, COL);
 
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap_or_else(|_| {
-            println!("{ERROR}: unable to get user input");
+        io::stdin().read_line(&mut input).unwrap_or_else(|_| {
+            eprintln!("{ERROR}: unable to get user input");
             std::process::exit(-1)
         });
 
@@ -41,20 +33,11 @@ fn main() {
             continue;
         }
 
-        let words: Vec<&str> = input
-            .strip_suffix('\n')
-            .unwrap_or_else(|| {
-                // Ctrl+D
-                println!();
-                std::process::exit(0)
-            })
-            .split(' ')
-            .collect();
+        let words: Vec<&str> = parser::parse(&input);
 
-        match words[0] {
-            "echo" => {
-                println!("{}", words[1..].join(" "));
-            }
+        retcode = match words[0] {
+            "echo" => echo(&words[1..]),
+            "cd" => cd(&words[1..], &PathBuf::from(&homedir)),
             "exit" => {
                 if words.len() > 1 {
                     std::process::exit(words[1].parse().unwrap_or(-1))
@@ -62,47 +45,74 @@ fn main() {
                     std::process::exit(0)
                 }
             }
-            "type" => {
-                if words.len() != 2 {
-                    success_indicator = ">".red();
-                    eprintln!("Usage: type command");
-                    continue;
-                }
-                println!(
-                    "{} is {}a builtin",
-                    words[1],
-                    if builtins.contains(&words[1]) {
-                        ""
-                    } else {
-                        "not "
-                    }
-                )
-            }
-            cmd => {
-                let output: Output = match Command::new(cmd).args(words[1..].iter()).output() {
-                    Ok(out) => out,
-                    Err(e) => {
-                        success_indicator = ">".bright_red();
-                        match e.kind() {
-                            std::io::ErrorKind::NotFound => {
-                                println!("{ERROR} 404: Command not found :)")
-                            }
-                            _ => println!("{ERROR} Unknown error :("),
-                        };
-                        continue;
-                    }
-                };
-                print!(
-                    "{}",
-                    String::from_utf8(output.stdout).unwrap_or(String::new())
-                );
-
-                retcode = output.status.code().unwrap_or(-1); // None if signal-terminated
-                match retcode {
-                    0 => success_indicator = ">".green(),
-                    _ => success_indicator = ">".red(),
-                }
-            }
-        }
+            "type" => type_cmd(&words[1..], BUILTINS),
+            cmd => exec_cmd(cmd, &words[1..]),
+        };
     }
+}
+
+fn print_prompt(username: &str, hostname: &str, retcode: i32, homedir: &str, color: Color) {
+    let width: usize = term_size::dimensions().unwrap_or((0, 0)).0;
+    let cwd: String = env::current_dir()
+        .unwrap_or(PathBuf::from("/"))
+        .to_string_lossy()
+        .replace(&homedir, "~");
+
+    let left_half: String = format!(
+        "{}{}{}{}{}{}{}",
+        "╭─".black(),
+        cwd.color(color).on_black(),
+        " | ".on_black(),
+        username.color(color).on_black(),
+        "@".on_black(),
+        hostname.color(color).on_black(),
+        "".black()
+    );
+    let right_half: String = format!(
+        "{}{}{}",
+        "".black(),
+        if retcode == 0 {
+            "󰸞".green().on_black()
+        } else {
+            format!(" {retcode}").red().on_black()
+        },
+        "".black(),
+    );
+
+    println!(
+        "{left_half}{}{right_half}",
+        "·".repeat(
+            width
+                .checked_sub(
+                    ansi_width::ansi_width(&left_half) + ansi_width::ansi_width(&right_half)
+                )
+                .unwrap_or(0)
+        )
+        .black(),
+    );
+
+    print!("{}", "╰─ ".black());
+
+    let _ = io::stdout().flush();
+}
+
+fn exec_cmd(cmd: &str, args: &[&str]) -> i32 {
+    let output: Output = match Command::new(cmd).args(args.iter()).output() {
+        Ok(out) => out,
+        Err(e) => {
+            match e.kind() {
+                io::ErrorKind::NotFound => {
+                    eprintln!("{ERROR} {cmd}: Command not found")
+                }
+                _ => eprintln!("{ERROR} Unknown error"),
+            };
+            return -1;
+        }
+    };
+    print!(
+        "{}",
+        String::from_utf8(output.stdout).unwrap_or(String::new())
+    );
+
+    output.status.code().unwrap_or(-1) // None if signal-terminated
 }
