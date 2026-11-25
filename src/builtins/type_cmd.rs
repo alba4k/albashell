@@ -1,4 +1,4 @@
-pub fn type_cmd(args: &[String], builtins: &[&str]) -> i32 {
+pub fn type_cmd(args: Vec<String>, builtins: &[&str]) -> i32 {
     if args.len() != 1 {
         eprintln!("Usage: type [command]");
         return -1;

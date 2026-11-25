@@ -4,7 +4,7 @@ use std::process::Command;
 use crate::ERROR;
 use crate::parser::Cmd;
 
-pub fn run(cmd: &Cmd) -> i32 {
+pub fn run(cmd: Cmd) -> i32 {
     match Command::new(cmd.executable.as_str())
         .args(&cmd.args)
         .status()

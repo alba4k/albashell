@@ -1,7 +1,7 @@
 use std::env::set_current_dir;
 use std::path::{Path, PathBuf};
 
-pub fn cd(args: &[String], homedir: &PathBuf) -> i32 {
+pub fn cd(args: Vec<String>, homedir: &PathBuf) -> i32 {
     if args.len() > 1 {
         eprintln!("Usage: cd [directory]");
         return -1;

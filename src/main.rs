@@ -4,7 +4,7 @@ use std::env;
 use std::path::PathBuf;
 
 mod builtins;
-use builtins::{cd, type_cmd};
+use builtins::{albashell, cd, type_cmd};
 
 mod parser;
 mod prompt;
@@ -12,10 +12,12 @@ mod runner;
 use parser::{Cmd, Condition};
 
 const ERROR: &str = "\x1b[1m[\x1b[31mERROR\x1b[0m\x1b[1m]\x1b[0m";
+const DEFAULT_COL: Color = Color::Cyan;
 
 fn main() {
-    const BUILTINS: &[&str] = &["type", "exit", "cd"];
-    const COL: Color = Color::Cyan;
+    const BUILTINS: &[&str] = &["albashell", "cd", "exit", "type"];
+
+    let mut color: Color = DEFAULT_COL;
 
     let username: String = whoami::username().unwrap_or("<unknown>".to_string());
     let hostname: String = whoami::hostname().unwrap_or("<unknown>".to_string());
@@ -39,7 +41,7 @@ fn main() {
     );
 
     retcode = loop {
-        let prompt: String = prompt::new(&username, &hostname, retcode, &homedir, COL);
+        let prompt: String = prompt::new(&username, &hostname, retcode, &homedir, color);
 
         let line: String = match rl.readline(&prompt) {
             Ok(line) => line,
@@ -71,7 +73,8 @@ fn main() {
             }
 
             retcode = match cmd.executable.as_str() {
-                "cd" => cd(&cmd.args, &PathBuf::from(&homedir)),
+                "albashell" => albashell(cmd.args, &mut color),
+                "cd" => cd(cmd.args, &PathBuf::from(&homedir)),
                 "exit" => {
                     let _ = rl.save_history(path.to_str().unwrap_or("~/.local/share/albashell"));
                     if cmd.args.is_empty() {
@@ -79,9 +82,9 @@ fn main() {
                     }
                     std::process::exit(cmd.args[0].parse().unwrap_or(-1));
                 }
-                "type" => type_cmd(&cmd.args, BUILTINS),
+                "type" => type_cmd(cmd.args, BUILTINS),
 
-                _ => runner::run(&cmd),
+                _ => runner::run(cmd),
             };
         }
     };

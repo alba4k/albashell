@@ -6,7 +6,7 @@ Stuff I'd like to do:
 - [x] echo
 - [x] type
 - [x] exit
-- [ ] color config
+- [x] color config
 - [x] history
 - [x] parse quotes
 - [x] escape sequences
