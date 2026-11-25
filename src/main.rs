@@ -1,118 +1,92 @@
-use colored::{Color, Colorize};
+use colored::Color;
+use rustyline::{DefaultEditor, error::ReadlineError};
 use std::env;
-use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process::{Command, Output};
 
 mod builtins;
-use builtins::*;
+use builtins::{cd, type_cmd};
+
 mod parser;
+mod prompt;
+mod runner;
+use parser::{Cmd, Condition};
 
 const ERROR: &str = "\x1b[1m[\x1b[31mERROR\x1b[0m\x1b[1m]\x1b[0m";
 
 fn main() {
-    const BUILTINS: &[&str] = &["echo", "type", "exit", "cd"];
+    const BUILTINS: &[&str] = &["type", "exit", "cd"];
+    const COL: Color = Color::Cyan;
 
     let username: String = whoami::username().unwrap_or("<unknown>".to_string());
     let hostname: String = whoami::hostname().unwrap_or("<unknown>".to_string());
     let homedir: String = env::var("HOME").unwrap_or("/".to_string());
 
-    const COL: Color = Color::Cyan;
     let mut retcode: i32 = 0;
 
-    loop {
-        print_prompt(&username, &hostname, retcode, &homedir, COL);
+    let mut rl = DefaultEditor::new().unwrap_or_else(|e| {
+        eprintln!("{ERROR}: unable to initialize line editor: {e}");
+        std::process::exit(-1)
+    });
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap_or_else(|_| {
-            eprintln!("{ERROR}: unable to get user input");
-            std::process::exit(-1)
-        });
+    let mut path: std::path::PathBuf = dirs::data_dir().unwrap_or_else(|| {
+        eprintln!("{ERROR}: Data directory not found");
+        std::process::exit(1);
+    });
+    path.push("albashell/history");
+    let _ = rl.load_history(
+        path.to_str()
+            .unwrap_or(format!("{homedir}/.local/share/albashell").as_str()),
+    );
 
-        if input.eq("\n") {
+    retcode = loop {
+        let prompt: String = prompt::new(&username, &hostname, retcode, &homedir, COL);
+
+        let line: String = match rl.readline(&prompt) {
+            Ok(line) => line,
+            // Ctrl+C
+            Err(ReadlineError::Interrupted) => continue,
+            // Ctrl+D
+            Err(ReadlineError::Eof) => {
+                println!("[albashell] exiting...");
+                break 0;
+            }
+            Err(e) => {
+                eprintln!("{ERROR}: unable to get user input: {e}");
+                break -1;
+            }
+        };
+
+        if line.trim().is_empty() {
             continue;
         }
+        let _ = rl.add_history_entry(line.as_str());
 
-        let words: Vec<&str> = parser::parse(&input);
+        let cmds: Vec<Cmd> = parser::parse(&line);
 
-        retcode = match words[0] {
-            "echo" => echo(&words[1..]),
-            "cd" => cd(&words[1..], &PathBuf::from(&homedir)),
-            "exit" => {
-                if words.len() > 1 {
-                    std::process::exit(words[1].parse().unwrap_or(-1))
-                } else {
-                    std::process::exit(0)
-                }
+        for cmd in cmds {
+            match (&cmd.cond, retcode) {
+                (Some(Condition::Success), 0) | (None, _) => {}
+                (Some(Condition::Success), _) | (Some(Condition::Failure), 0) => continue,
+                (Some(Condition::Failure), _) => {}
             }
-            "type" => type_cmd(&words[1..], BUILTINS),
-            cmd => exec_cmd(cmd, &words[1..]),
-        };
-    }
-}
 
-fn print_prompt(username: &str, hostname: &str, retcode: i32, homedir: &str, color: Color) {
-    let width: usize = term_size::dimensions().unwrap_or((0, 0)).0;
-    let cwd: String = env::current_dir()
-        .unwrap_or(PathBuf::from("/"))
-        .to_string_lossy()
-        .replace(&homedir, "~");
-
-    let left_half: String = format!(
-        "{}{}{}{}{}{}{}",
-        "╭─".black(),
-        cwd.color(color).on_black(),
-        " | ".on_black(),
-        username.color(color).on_black(),
-        "@".on_black(),
-        hostname.color(color).on_black(),
-        "".black()
-    );
-    let right_half: String = format!(
-        "{}{}{}",
-        "".black(),
-        if retcode == 0 {
-            "󰸞".green().on_black()
-        } else {
-            format!(" {retcode}").red().on_black()
-        },
-        "".black(),
-    );
-
-    println!(
-        "{left_half}{}{right_half}",
-        "·".repeat(
-            width
-                .checked_sub(
-                    ansi_width::ansi_width(&left_half) + ansi_width::ansi_width(&right_half)
-                )
-                .unwrap_or(0)
-        )
-        .black(),
-    );
-
-    print!("{}", "╰─ ".black());
-
-    let _ = io::stdout().flush();
-}
-
-fn exec_cmd(cmd: &str, args: &[&str]) -> i32 {
-    let output: Output = match Command::new(cmd).args(args.iter()).output() {
-        Ok(out) => out,
-        Err(e) => {
-            match e.kind() {
-                io::ErrorKind::NotFound => {
-                    eprintln!("{ERROR} {cmd}: Command not found")
+            retcode = match cmd.executable.as_str() {
+                "cd" => cd(&cmd.args, &PathBuf::from(&homedir)),
+                "exit" => {
+                    let _ = rl.save_history(path.to_str().unwrap_or("~/.local/share/albashell"));
+                    if cmd.args.is_empty() {
+                        std::process::exit(0);
+                    }
+                    std::process::exit(cmd.args[0].parse().unwrap_or(-1));
                 }
-                _ => eprintln!("{ERROR} Unknown error"),
+                "type" => type_cmd(&cmd.args, BUILTINS),
+
+                _ => runner::run(&cmd),
             };
-            return -1;
         }
     };
-    print!(
-        "{}",
-        String::from_utf8(output.stdout).unwrap_or(String::new())
-    );
 
-    output.status.code().unwrap_or(-1) // None if signal-terminated
+    let _ = rl.save_history(path.to_str().unwrap_or("~/.local/share/albashell"));
+
+    std::process::exit(retcode);
 }

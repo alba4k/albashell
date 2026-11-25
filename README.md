@@ -7,8 +7,10 @@ Stuff I'd like to do:
 - [x] type
 - [x] exit
 - [ ] color config
-- [ ] parse quotes
-- [ ] escape sequences
+- [x] history
+- [x] parse quotes
+- [x] escape sequences
+- [x] chaining with `&&`, `||`, `;`
 - [ ] alias
 - [ ] parse env with `${VAR}`
 - [ ] export
