@@ -17,3 +17,4 @@ Stuff I'd like to do:
 - [ ] stream redirect
 - [ ] pipes
 - [ ] `... $(...)`
+- [ ] `cd -`, `cd ~`

@@ -3,12 +3,18 @@ use std::env;
 
 use std::path::PathBuf;
 
-pub fn new(username: &str, hostname: &str, retcode: i32, homedir: &str, color: Color) -> String {
+pub fn new(
+    username: &str,
+    hostname: &str,
+    retcode: i32,
+    homedir: &PathBuf,
+    color: Color,
+) -> String {
     let width: usize = term_size::dimensions().unwrap_or((0, 0)).0;
     let cwd: String = env::current_dir()
-        .unwrap_or(PathBuf::from("/"))
+        .unwrap_or_else(|_| PathBuf::from("/"))
         .to_string_lossy()
-        .replace(homedir, "~");
+        .replace(homedir.to_str().unwrap_or("/"), "~");
 
     let left_half: String = format!(
         "{}{}{}{}{}{}{}",

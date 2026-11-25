@@ -1,8 +1,17 @@
+use crate::WARNING;
 use crate::parser::Condition::{Failure, Success};
 
 pub enum Condition {
     Success,
     Failure,
+}
+impl Condition {
+    pub fn allows(&self, retcode: i32) -> bool {
+        match self {
+            Condition::Success => retcode == 0,
+            Condition::Failure => retcode != 0,
+        }
+    }
 }
 
 pub struct Cmd {
@@ -10,6 +19,11 @@ pub struct Cmd {
     pub args: Vec<String>,
     pub _background: bool,
     pub cond: Option<Condition>,
+}
+impl Cmd {
+    pub fn should_run(&self, retcode: i32) -> bool {
+        self.cond.as_ref().is_none_or(|c| c.allows(retcode))
+    }
 }
 
 pub fn parse(input: &str) -> Vec<Cmd> {
@@ -29,79 +43,72 @@ pub fn parse(input: &str) -> Vec<Cmd> {
         _background: false,
         cond: None,
     }];
-    if !split.1.is_empty() {
-        let mut iter = split.1.chars();
-        while let Some(ch) = iter.next() {
-            if escape {
-                escape = false;
-                match ch {
-                    'n' => curr.push('\n'),
-                    'e' => curr.push('\x1b'),
-                    c => curr.push(c),
-                }
-                continue;
-            }
 
-            match (ch, &in_str) {
-                ('"', _) => in_str.toggle(),
-                ('\\', false) => escape = true,
-                (' ', false) => {
-                    if !curr.is_empty() {
-                        cmds.last_mut().unwrap().args.push(curr);
-                    }
-                    curr = String::new();
-                }
-                ('&' | '|', false) => {
-                    if let Some(next) = iter.next() {
-                        if next == ch {
-                            cmds.last_mut().unwrap().args.push(curr);
-                            split = iter
-                                .as_str()
-                                .trim_start()
-                                .split_once(' ')
-                                .unwrap_or((input, ""));
-                            cmds.push(Cmd {
-                                executable: split.0.to_string(),
-                                args: Vec::new(),
-                                _background: false,
-                                cond: if ch == '&' {
-                                    Some(Success)
-                                } else {
-                                    // ch == '|'
-                                    Some(Failure)
-                                },
-                            });
-                            iter = split.1.chars();
-                            curr = String::new();
-                        } else {
-                            curr.push(ch);
-                            curr.push(next);
-                        }
-                    } else {
-                        curr.push(ch);
-                    }
-                }
-                (';', false) => {
-                    cmds.last_mut().unwrap().args.push(curr);
-                    split = iter
-                        .as_str()
-                        .trim_start()
-                        .split_once(' ')
-                        .unwrap_or((input, ""));
-                    cmds.push(Cmd {
-                        executable: split.0.to_string(),
-                        args: Vec::new(),
-                        _background: false,
-                        cond: None,
-                    });
-                    iter = split.1.chars();
-                    curr = String::new();
-                }
-                _ => curr.push(ch),
+    if split.1.is_empty() {
+        return cmds;
+    }
+
+    let mut iter = split.1.chars();
+    while let Some(ch) = iter.next() {
+        if escape {
+            escape = false;
+            curr.push(match ch {
+                'n' => '\n',
+                'e' => '\x1b',
+                c => c,
+            });
+            continue;
+        }
+
+        match ch {
+            '"' => in_str.toggle(),
+            _ if in_str => curr.push(ch),
+
+            '\\' => escape = true,
+            ' ' if !curr.is_empty() => {
+                cmds.last_mut().unwrap().args.push(curr);
+                curr = String::new();
             }
+            ' ' => {}
+            '&' | '|' | ';' => {
+                if ch != ';' {
+                    let Some(rest) = iter.as_str().strip_prefix(ch) else {
+                        curr.push(ch);
+                        continue;
+                    };
+                    iter = rest.chars();
+                }
+
+                cmds.last_mut().unwrap().args.push(curr);
+                split = iter
+                    .as_str()
+                    .trim_start()
+                    .split_once(' ')
+                    .unwrap_or((input, ""));
+                cmds.push(Cmd {
+                    executable: split.0.to_string(),
+                    args: Vec::new(),
+                    _background: false,
+                    cond: if ch == '&' {
+                        Some(Success)
+                    } else if ch == '|' {
+                        // ch == '|'
+                        Some(Failure)
+                    } else {
+                        None
+                    },
+                });
+                iter = split.1.chars();
+                curr = String::new();
+            }
+            _ => curr.push(ch),
         }
     }
     cmds.last_mut().unwrap().args.push(curr);
+
+    if in_str {
+        eprintln!("{WARNING}: Unclosed quotation marks. Inserting one at the end of your input");
+    }
 
     cmds
 }

@@ -1,7 +1,9 @@
 use std::env::set_current_dir;
 use std::path::{Path, PathBuf};
 
-pub fn cd(args: Vec<String>, homedir: &PathBuf) -> i32 {
+use crate::retvals;
+
+pub fn cd(args: &[String], homedir: &PathBuf) -> i32 {
     if args.len() > 1 {
         eprintln!("Usage: cd [directory]");
         return -1;
@@ -12,10 +14,10 @@ pub fn cd(args: Vec<String>, homedir: &PathBuf) -> i32 {
         Path::new(args[0].as_str())
     };
     match set_current_dir(newcwd) {
-        Ok(()) => 0,
+        Ok(()) => retvals::RET_OK,
         Err(e) => {
             eprintln!("{e}");
-            1
+            retvals::ERR_UNKNOWN
         }
     }
 }
