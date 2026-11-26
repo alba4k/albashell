@@ -6,7 +6,7 @@ use crate::parser::Cmd;
 use crate::retvals;
 use crate::runner::run;
 
-pub fn albashell(args: &[String], color: &mut Color) -> i32 {
+pub fn albashell(args: &[String], color: &mut Color, sparse: &mut bool) -> i32 {
     if args.is_empty() || (!args[0].eq("conf") && !args[0].eq("config")) {
         return run(&Cmd {
             executable: "albashell".to_string(),
@@ -22,10 +22,10 @@ pub fn albashell(args: &[String], color: &mut Color) -> i32 {
     }
 
     match args[1].as_str() {
-        "col" | "color" => {
+        "col" | "color" | "c" => {
             if args.len() < 3 {
                 eprintln!("{ERROR}: Not enough arguments for albashell conf col");
-                return -1;
+                return retvals::ERR_USAGE;
             }
 
             if args[2].eq("default") || args[2].eq("reset") {
@@ -37,6 +37,27 @@ pub fn albashell(args: &[String], color: &mut Color) -> i32 {
             } else {
                 eprintln!("{ERROR}: Unrecognized color {}", args[2]);
                 retvals::ERR_USAGE
+            }
+        }
+        "sparse" | "s" => {
+            if args.len() < 3 {
+                eprintln!("{ERROR}: Not enough arguments for albashell conf sparse");
+                return retvals::ERR_USAGE;
+            }
+
+            match args[2].as_str() {
+                "true" | "1" | "on" => {
+                    *sparse = true;
+                    retvals::RET_OK
+                }
+                "false" | "0" | "off" => {
+                    *sparse = true;
+                    retvals::RET_OK
+                }
+                x => {
+                    eprintln!("{ERROR}: Unrecognized value for sparse {}", x);
+                    retvals::ERR_USAGE
+                }
             }
         }
         _ => {

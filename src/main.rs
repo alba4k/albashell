@@ -20,6 +20,7 @@ fn main() {
     const BUILTINS: &[&str] = &["albashell", "cd", "exit", "export", "type"];
 
     let mut color: Color = DEFAULT_COL;
+    let mut sparse: bool = true;
 
     let username: String = whoami::username().unwrap_or_else(|_| "<unknown>".to_string());
     let hostname: String = whoami::hostname().unwrap_or_else(|_| "<unknown>".to_string());
@@ -59,7 +60,7 @@ fn main() {
             Err(ReadlineError::Interrupted) => continue,
             // Ctrl+D
             Err(ReadlineError::Eof) => {
-                println!("[albashell] exiting...");
+                eprintln!("[albashell] exiting...");
                 break retvals::RET_OK;
             }
             Err(e) => {
@@ -82,7 +83,7 @@ fn main() {
             }
 
             retcode = match cmd.executable.as_str() {
-                "albashell" => albashell(&cmd.args, &mut color),
+                "albashell" => albashell(&cmd.args, &mut color, &mut sparse),
                 "cd" => cd(&cmd.args, &homedir),
                 "exit" => {
                     let _ = rl.save_history(&path);
@@ -95,6 +96,9 @@ fn main() {
                 "type" => type_cmd(&cmd.args, BUILTINS),
                 _ => runner::run(&cmd),
             };
+            if sparse {
+                println!()
+            }
         }
     };
 

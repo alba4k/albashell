@@ -33,4 +33,8 @@ Roadmap (stuff I'd like to add in the near future):
 - [ ] scripting
 - [ ] cmdline arguments `--help`, `-c`, `-v`
 - [ ] set `ALBASHELL_*` variables for info (?)
-- [ ]
+- [ ] runtime, git, etc in prompt
+
+---
+
+Prompt inspired by [IlanCosman/tide](https://github.com/IlanCosman/tide)
