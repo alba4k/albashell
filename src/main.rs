@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::{env, fs, io};
 
 mod builtins;
-use builtins::{albashell, cd, type_cmd};
+use builtins::{albashell, cd, export, type_cmd};
 
 mod parser;
 mod prompt;
@@ -17,7 +17,7 @@ const WARNING: &str = "\x1b[1m[\x1b[33mWARNING\x1b[0m\x1b[1m]\x1b[0m";
 const DEFAULT_COL: Color = Color::Cyan;
 
 fn main() {
-    const BUILTINS: &[&str] = &["albashell", "cd", "exit", "type"];
+    const BUILTINS: &[&str] = &["albashell", "cd", "exit", "export", "type"];
 
     let mut color: Color = DEFAULT_COL;
 
@@ -90,6 +90,7 @@ fn main() {
                     }
                     std::process::exit(cmd.args[0].parse().unwrap_or(retvals::ERR_UNKNOWN));
                 }
+                "export" => export(&cmd.args),
                 "type" => type_cmd(&cmd.args, BUILTINS),
                 _ => runner::run(&cmd),
             };

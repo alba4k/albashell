@@ -11,9 +11,11 @@ Stuff I'd like to do:
 - [x] parse quotes
 - [x] escape sequences
 - [x] chaining with `&&`, `||`, `;`
+- [x] export
+- [x] parse env with `${VAR}`
 - [ ] alias
-- [ ] parse env with `${VAR}`
-- [ ] export
+- [ ] better type (binary path / not found)
+- [ ] `which`
 - [ ] stream redirect
 - [ ] pipes
 - [ ] `... $(...)`

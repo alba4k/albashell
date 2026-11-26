@@ -27,8 +27,7 @@ impl Cmd {
 }
 
 pub fn parse(input: &str) -> Vec<Cmd> {
-    let mut split: (&str, &str) = input.trim().split_once(' ').unwrap_or((input, ""));
-
+    let mut split: (&str, &str) = input.trim().split_once(' ').unwrap_or((input.trim(), ""));
     if split.0.is_empty() {
         return Vec::new();
     }
@@ -63,6 +62,23 @@ pub fn parse(input: &str) -> Vec<Cmd> {
         match ch {
             '"' => in_str.toggle(),
             _ if in_str => curr.push(ch),
+
+            '$' => {
+                let Some(rest) = iter.as_str().strip_prefix('{') else {
+                    curr.push(ch);
+                    continue;
+                };
+                iter = rest.chars();
+
+                let mut key: String = String::new();
+                while let Some(ch) = iter.next()
+                    && ch != '}'
+                {
+                    key.push(ch);
+                }
+
+                curr.push_str(std::env::var(&key).unwrap_or(String::new()).as_str());
+            }
 
             '\\' => escape = true,
             ' ' if !curr.is_empty() => {
