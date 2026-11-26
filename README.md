@@ -1,7 +1,13 @@
 # albashell
 Yet another UNIX shell, built in Rust
 
-Stuff I'd like to do:
+![](assets/preview.jpg)
+
+It ain't much but it's honest work
+
+---
+
+Roadmap (stuff I'd like to add in the near future):
 - [x] cd
 - [x] echo
 - [x] type
@@ -16,7 +22,14 @@ Stuff I'd like to do:
 - [ ] alias
 - [ ] better type (binary path / not found)
 - [ ] `which`
+- [ ] async exec with `&`, `disown`
 - [ ] stream redirect
 - [ ] pipes
 - [ ] `... $(...)`
-- [ ] `cd -`, `cd ~`
+- [ ] `cd -`
+- [ ] expand `~`
+- [ ] if/else/while/for?
+- [ ] scripting
+- [ ] cmdline arguments `--help`, `-c`, `-v`
+- [ ] set `ALBASHELL_*` variables for info (?)
+- [ ]
