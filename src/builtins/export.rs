@@ -27,5 +27,5 @@ pub fn export(args: &[String]) -> i32 {
     unsafe {
         std::env::set_var(&args[0], &args[1]);
     }
-    return retvals::RET_OK;
+    retvals::RET_OK
 }

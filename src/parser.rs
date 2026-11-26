@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::WARNING;
 use crate::parser::Condition::{Failure, Success};
 
@@ -26,8 +28,8 @@ impl Cmd {
     }
 }
 
-pub fn parse(input: &str) -> Vec<Cmd> {
-    let mut split: (&str, &str) = input.trim().split_once(' ').unwrap_or((input.trim(), ""));
+pub fn parse(input: &str, homedir: &Path) -> Vec<Cmd> {
+    let mut split: (&str, &str) = input.split_once(' ').unwrap_or((input, ""));
     if split.0.is_empty() {
         return Vec::new();
     }
@@ -77,8 +79,10 @@ pub fn parse(input: &str) -> Vec<Cmd> {
                     key.push(ch);
                 }
 
-                curr.push_str(std::env::var(&key).unwrap_or(String::new()).as_str());
+                curr.push_str(std::env::var(&key).unwrap_or_default().as_str());
             }
+
+            '~' if curr.is_empty() => curr.push_str(homedir.to_str().unwrap_or("/")),
 
             '\\' => escape = true,
             ' ' if !curr.is_empty() => {

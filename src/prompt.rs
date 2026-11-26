@@ -1,15 +1,9 @@
 use colored::{Color, Colorize};
 use std::env;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub fn new(
-    username: &str,
-    hostname: &str,
-    retcode: i32,
-    homedir: &PathBuf,
-    color: Color,
-) -> String {
+pub fn new(username: &str, hostname: &str, retcode: i32, homedir: &Path, color: Color) -> String {
     let width: usize = term_size::dimensions().unwrap_or((0, 0)).0;
     let cwd: String = env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("/"))

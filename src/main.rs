@@ -68,12 +68,13 @@ fn main() {
             }
         };
 
-        if line.trim().is_empty() {
+        let tline: &str = line.trim();
+        if tline.is_empty() {
             continue;
         }
-        let _ = rl.add_history_entry(line.as_str());
+        let _ = rl.add_history_entry(tline);
 
-        let cmds: Vec<Cmd> = parser::parse(&line);
+        let cmds: Vec<Cmd> = parser::parse(tline, &homedir);
 
         for cmd in cmds {
             if !cmd.should_run(retcode) {
@@ -82,7 +83,7 @@ fn main() {
 
             retcode = match cmd.executable.as_str() {
                 "albashell" => albashell(&cmd.args, &mut color),
-                "cd" => cd(&cmd.args, &PathBuf::from(&homedir)),
+                "cd" => cd(&cmd.args, &homedir),
                 "exit" => {
                     let _ = rl.save_history(&path);
                     if cmd.args.is_empty() {

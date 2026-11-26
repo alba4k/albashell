@@ -19,6 +19,8 @@ Roadmap (stuff I'd like to add in the near future):
 - [x] chaining with `&&`, `||`, `;`
 - [x] export
 - [x] parse env with `${VAR}`
+- [x] expand `~`
+- [ ] functions
 - [ ] alias
 - [ ] better type (binary path / not found)
 - [ ] `which`
@@ -27,7 +29,6 @@ Roadmap (stuff I'd like to add in the near future):
 - [ ] pipes
 - [ ] `... $(...)`
 - [ ] `cd -`
-- [ ] expand `~`
 - [ ] if/else/while/for?
 - [ ] scripting
 - [ ] cmdline arguments `--help`, `-c`, `-v`
